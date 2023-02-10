@@ -8,6 +8,7 @@
 #include "linked_list.h"
 #include "mbstrings.h"
 
+
 /** Updates the game by a single step, and modifies the game information
  * accordingly. Arguments:
  *  - cells: a pointer to the first integer in an array of integers representing
@@ -29,6 +30,53 @@ void update(int* cells, size_t width, size_t height, snake_t* snake_p,
     // walls, so it does not handle the case where a snake runs off the board.
 
     // TODO: implement!
+    int hit_wall;
+    int past_snake_column = g_snake_column;
+    int past_snake_row = g_snake_row;
+    switch (input) {
+        case INPUT_UP:
+            g_snake_dir = SNAKE_UP;
+            break;
+        case INPUT_DOWN:
+            g_snake_dir = SNAKE_DOWN;
+            break;
+        case INPUT_LEFT:
+            g_snake_dir = SNAKE_LEFT;
+            break;
+        case INPUT_RIGHT:
+            g_snake_dir= SNAKE_RIGHT;
+            break;
+        case INPUT_NONE:
+            break;
+    }
+
+    switch (g_snake_dir) {
+        case SNAKE_UP:
+            hit_wall = (--g_snake_row == 1);
+            break;
+        case SNAKE_DOWN:
+            hit_wall = (++g_snake_row == 10);
+            break;
+        case SNAKE_LEFT:
+            hit_wall = (--g_snake_column == 1);
+            break;
+        case SNAKE_RIGHT:
+            hit_wall = (++g_snake_column == 20);
+            break;
+    }
+
+    if (hit_wall == 1) {
+        g_game_over = 1;
+    }
+    else {
+        cells[20 * (past_snake_row - 1) + past_snake_column - 1] = FLAG_PLAIN_CELL;
+        if (cells[20 * (g_snake_row - 1) + g_snake_column - 1] == FLAG_FOOD) {
+            g_score++;
+            place_food(cells, 20, 10);
+        }
+        cells[20 * (g_snake_row - 1) + g_snake_column - 1] = FLAG_SNAKE;
+
+    }
 }
 
 /** Sets a random space on the given board to food.
@@ -68,4 +116,5 @@ void read_name(char* write_into) {
  */
 void teardown(int* cells, snake_t* snake_p) {
     // TODO: implement!
+    free(cells);
 }

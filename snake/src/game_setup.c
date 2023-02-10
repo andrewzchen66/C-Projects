@@ -33,7 +33,7 @@ enum board_init_status initialize_default_board(int** cells_p, size_t* width_p,
                                                 size_t* height_p) {
     *width_p = 20;
     *height_p = 10;
-    int* cells = malloc(20 * 10 * sizeof(int));
+    int* cells; //= malloc(20 * 10 * sizeof(int));
     *cells_p = cells;
     for (int i = 0; i < 20 * 10; i++) {
         cells[i] = FLAG_PLAIN_CELL;
@@ -73,9 +73,61 @@ enum board_init_status initialize_game(int** cells_p, size_t* width_p,
                                        size_t* height_p, snake_t* snake_p,
                                        char* board_rep) {
     // TODO: implement!
-
-    return INIT_SUCCESS;
+    enum board_init_status result = initialize_default_board(cells_p, width_p, height_p);
+    place_food(*cells_p, *width_p, *height_p);
+    g_snake_row = 3;
+    g_snake_column = 3;
+    g_snake_dir = SNAKE_RIGHT;
+    g_game_over = 0;  // 1 if game is over, 0 otherwise
+    g_score = 0;
+     
+    return result;
 }
+
+/** Takes in a string and outputs the leading integer in the string that lies before 
+ *      the next non-number. Arguments:
+ *      - a_str: a string whose stating chars contain an integers.
+ 
+ int parse_leading_int(char* a_str) {
+    int i;
+    for(i = 0; i < strlen(); i++) {
+        atoi
+    }
+ }
+*/
+
+/** Takes in a cells_p and adds a desired number and type of cells to the 
+ *                  end of cells_p. Assume there is enough space allocated 
+ *                  for cell_p, and cell_type is well-formed. Arguments:
+ *      - cells_p: a pointer to the pointer representing the cells array
+ *                 that we would like to initialize.
+ *      - cell_type: a char* of either "W", "E", or "S" representing the type
+ *                 of cell to be inserted.
+ *      - num_chars: an int representing the number of cells to be added to 
+ *                 end of cell_p.
+ */
+void add_to_board(int** cells_p, char* cell_type, int num_chars) {
+    int cell_value;
+    switch (cell_type) {
+        case "W":
+            cell_value = FLAG_WALL;
+            break;
+        case "E":
+            cell_value = FLAG_PLAIN_CELL;
+            break;
+        case "S":
+            cell_value = FLAG_SNAKE;
+            break;
+    }
+    int* cells_ptr = *cells_p;
+    while (*cells_ptr != NULL) {
+        cells_ptr = &cells_ptr[1];
+    }
+    for (i = 0; i < num_chars; i++) {
+        cells_ptr[i] = cell_value;
+    }
+}
+
 
 /** Takes in a string `compressed` and initializes values pointed to by
  * cells_p, width_p, and height_p accordingly. Arguments:
@@ -94,5 +146,64 @@ enum board_init_status decompress_board_str(int** cells_p, size_t* width_p,
                                             size_t* height_p, snake_t* snake_p,
                                             char* compressed) {
     // TODO: implement!
+    int row_num = 0; //first row will be row 1
+    int column_num = 0; //first column will be column 1
+    int snake_count = 0;
+    char* current_segment = compressed;
+    int num_chars;
+    int height;
+    int width;
+
+    //Valid Chars: #, B, x, W, E, S
+    /*
+    INIT_ERR_INCORRECT_DIMENSIONS,  // dimensions description was not formatted
+                                    // correctly, or too many rows/columns are
+                                    // specified anywhere in the string for the
+                                    // given dimensions
+    INIT_ERR_WRONG_SNAKE_NUM,  // no snake or multiple snakes are on the board
+    INIT_ERR_BAD_CHAR,  // any other part of the compressed string was formatted
+                        // incorrectly
+    */
+    //Determine expected dimensions of board using beginning segment
+    if (compressed[0] != "B") {
+        return INIT_ERR_BAD_CHAR;
+    }
+    current_segment = strtok(&compressed[1], "x");
+    *height_p = atoi(current_segment);
+    height = atoi(current_segment);
+    current_segment = strtok(NULL, "|");
+    *width_p = atoi(current_segment);
+    width = atoi(current_segment);
+    *cells_p = malloc((*width_p) * (*height_p) * sizeof(int));
+    
+    //Iterate through the main segment of compressed
+    while (current_segment != NULL) {
+        current_segment = strtok(NULL, "|");
+        while (current_segment) {
+            switch (current_segment[0]) {
+                case "W":
+                    num_chars = atoi(current_segment + 1);
+                    add_to_board(cells_p, "W", num_chars);
+                    break;
+                case "E":
+                    add_to_board(cells_p, "W", atoi(current_segment + 1));
+                    break;
+                case "S":
+                    if ((atoi(current_segment + 1) != 1) || (snake_count == 1)) {
+                        return INIT_ERR_WRONG_SNAKE_NUM;
+                    }
+                    snake_count++;
+                    add_to_board(cells_p, "S", 1);
+                    break;
+                default:
+                    return INIT_ERR_BAD_CHAR;
+            }
+            row_num += num_chars;
+        }
+        column_num += 1;
+        if (row_num != height) {
+            return INIT_ERR_INCORRECT_DIMENSIONS;
+        }
+    }   
     return INIT_UNIMPLEMENTED;
 }
