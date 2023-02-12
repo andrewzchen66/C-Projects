@@ -141,7 +141,7 @@ enum board_init_status decompress_board_str(int** cells_p, size_t* width_p,
                                             size_t* height_p, snake_t* snake_p,
                                             char* compressed) {
     // TODO: implement!
-    int row_num = 1; //first row will be row 1
+    int row_num = 0; //first row will be row 1
     int column_num = 0; //first column will be column 1
     int snake_count = 0;
     char* current_segment = compressed;
@@ -163,48 +163,50 @@ enum board_init_status decompress_board_str(int** cells_p, size_t* width_p,
     cells_ptr = malloc((*width_p) * (*height_p) * sizeof(int));
     *cells_p = cells_ptr;
 
+    current_segment = strtok(NULL, "|");
     //Iterate through the main segment of compressed
     while (current_segment != NULL) { //Loop through every row
-        current_segment = strtok(NULL, "|");
-        int i;
-        for (i = 0; current_segment[i] != '\0'; i++) { //Loop through every column
-            switch (*current_segment) {
-                case 'W':
-                    num_chars = atoi(current_segment + 1);
-                    break;
-                case 'E':
-                    num_chars = atoi(current_segment + 1);
-                    break;
-                case 'S':
-                    num_chars = atoi(current_segment + 1);
-                    if ((num_chars != 1) || (snake_count == 1)) {
-                        return INIT_ERR_WRONG_SNAKE_NUM;
-                    }
-                    snake_count++;
-                    g_snake_row = row_num;
-                    g_snake_column = column_num + num_chars;
-                    break;
-                default:
-                    return INIT_ERR_BAD_CHAR;
-            }
-            column_num += num_chars;
-            if (column_num > width) {
-                return INIT_ERR_INCORRECT_DIMENSIONS;
-            }
-            else {
-                add_to_board(&cells_ptr, *current_segment, num_chars);
-            }
-        }
-        
-        if (column_num != width) {
-                return INIT_ERR_INCORRECT_DIMENSIONS;
-        }
-        column_num = 0;
         row_num += 1;
         if (row_num > height) {
             return INIT_ERR_INCORRECT_DIMENSIONS;
         }
-    } 
+        //int i;
+        while (*current_segment != '\0') {
+            if (!((*current_segment >= DIGIT_START) && (*current_segment <= DIGIT_END))) {
+                switch (*current_segment) {
+                    case 'W': 
+                        num_chars = atoi(current_segment + 1);
+                        break;
+                    case 'E':
+                        num_chars = atoi(current_segment + 1);
+                        break;
+                    case 'S':
+                        num_chars = atoi(current_segment + 1);
+                        if ((num_chars != 1) || (snake_count == 1)) {
+                            return INIT_ERR_WRONG_SNAKE_NUM;
+                        }
+                        snake_count++;
+                        g_snake_row = row_num;
+                        g_snake_column = column_num + num_chars;
+                        break;
+                    default:
+                        return INIT_ERR_BAD_CHAR;
+                }
+                column_num += num_chars;
+                if (column_num > width) {
+                    return INIT_ERR_INCORRECT_DIMENSIONS;
+                }
+                add_to_board(&cells_ptr, *current_segment, num_chars);
+            }
+            //num_chars = 0;
+            current_segment++;
+        }
+        if (column_num != width) {
+            return INIT_ERR_INCORRECT_DIMENSIONS;
+        }
+        column_num = 0;
+        current_segment = strtok(NULL, "|");
+    }
     if (row_num != height) {
         return INIT_ERR_INCORRECT_DIMENSIONS;
     }
