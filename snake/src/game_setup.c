@@ -73,29 +73,33 @@ enum board_init_status initialize_game(int** cells_p, size_t* width_p,
                                        size_t* height_p, snake_t* snake_p,
                                        char* board_rep) {
     // TODO: implement!
+    void* snake_position = malloc(sizeof(int));
+    node_t* first_node = malloc(sizeof(node_t));
+    int data = 42;
+    memcpy(snake_position, &data, sizeof(int));
+    first_node->data = snake_position;
+    first_node->prev = NULL;
+    first_node->next = NULL;
+    snake_p->g_snake_head_position = first_node;
+    snake_p->g_snake_dir = SNAKE_RIGHT;
     enum board_init_status result;
     if (board_rep == NULL) {
         result = initialize_default_board(cells_p, width_p, height_p);
-        g_snake_row = 3;
-        g_snake_column = 3;
     }
     else {
         result = decompress_board_str(cells_p, width_p, height_p, snake_p, board_rep);
     }
     if (result == INIT_SUCCESS) {
         place_food(*cells_p, *width_p, *height_p);
-        g_snake_dir = SNAKE_RIGHT;
         g_game_over = 0;  // 1 if game is over, 0 otherwise
         g_score = 0;
     }
-     
     return result;
 }
 
 /** Takes in a cells_ptr and adds a desired number and type of cells to the 
- *                  location of cells_ptr while updating cells_ptr. Assume 
- *                  there is enough space allocated after cells_ptr, and 
- *                  cell_type is well-formed. Arguments:
+ *  location of cells_ptr while updating cells_ptr. Assume there is enough 
+ *  space allocated after cells_ptr, and cell_type is well-formed. Arguments:
  *      - cells_ptr: a pointer to the pointer representing the current location
  *                  of where chars will be inserted.
  *      - cell_type: a char* of either 'W', 'E', or 'S' representing the type
@@ -160,17 +164,16 @@ enum board_init_status decompress_board_str(int** cells_p, size_t* width_p,
     current_segment = strtok(NULL, "|");
     *width_p = atoi(current_segment);
     width = *width_p;
-    cells_ptr = malloc((*width_p) * (*height_p) * sizeof(int));
-    *cells_p = cells_ptr;
+    *cells_p = malloc(width * height * sizeof(int));
+    cells_ptr = *cells_p;
 
     current_segment = strtok(NULL, "|");
     //Iterate through the main segment of compressed
-    while (current_segment != NULL) { //Loop through every row
+    while (current_segment != NULL) { //Loop every row
         row_num += 1;
         if (row_num > height) {
             return INIT_ERR_INCORRECT_DIMENSIONS;
         }
-        //int i;
         while (*current_segment != '\0') {
             if (!((*current_segment >= DIGIT_START) && (*current_segment <= DIGIT_END))) {
                 switch (*current_segment) {
@@ -182,12 +185,13 @@ enum board_init_status decompress_board_str(int** cells_p, size_t* width_p,
                         break;
                     case 'S':
                         num_chars = atoi(current_segment + 1);
-                        if ((num_chars != 1) || (snake_count == 1)) {
+                        if ((num_chars != 1) || (snake_count != 0)) {
                             return INIT_ERR_WRONG_SNAKE_NUM;
                         }
                         snake_count++;
-                        g_snake_row = row_num;
-                        g_snake_column = column_num + num_chars;
+                        int* snake_position = snake_p->g_snake_head_position->data;
+                        *snake_position = (row_num - 1) * width + column_num + num_chars - 1;
+                        snake_p->g_snake_dir = SNAKE_RIGHT;
                         break;
                     default:
                         return INIT_ERR_BAD_CHAR;
@@ -198,7 +202,6 @@ enum board_init_status decompress_board_str(int** cells_p, size_t* width_p,
                 }
                 add_to_board(&cells_ptr, *current_segment, num_chars);
             }
-            //num_chars = 0;
             current_segment++;
         }
         if (column_num != width) {

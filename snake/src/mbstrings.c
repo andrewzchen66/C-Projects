@@ -24,5 +24,19 @@
  */
 size_t mbslen(const char* bytes) {
     // TODO: implement!
-    return 0;
+    size_t code_point_count = 0;
+    while (*bytes != '\0') {
+        unsigned char curr_char = (unsigned char) *bytes;
+        if (curr_char <= 0x7F) {
+            bytes++;
+        } else if ((curr_char & 0xE0) == 0xC0) {
+            bytes += 2;
+        } else if ((curr_char & 0xF0) == 0xE0) {
+            bytes += 3;
+        } else if ((curr_char & 0xF8) == 0xF0) {
+            bytes += 4;
+        }
+        code_point_count++;
+    }
+    return code_point_count;
 }
