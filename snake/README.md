@@ -3,7 +3,7 @@ CSCI 0300 Project 1 - Snake
 
 ## Design Overview:
 None
-s
+
 ## Collaborators:
 
 ## Responsible Computing:
@@ -27,7 +27,17 @@ b)
 
 
 ## Extra Credit attempted:
+Bell Character on Food: 
+* The game will make a bell sound when the snake eats a food, and when the snake dies (2 pts).
+
+Better Snake Visuals: 
+* My snake is a solid green snake instead of the letter S (2 pts).
+* I made the food look like apple emojis (2 points).
+
+Wraparound:
+* My snake wraps around to the other edge when it runs off the board. (4 points)
+(I checked this implementation by commenting out the code in initialize_default_board that makes the walls, then running the game to make sure the snake does wrap around).
 
 ## How long did it take to complete Snake? 
-<!-- Enter an approximate number of hours that you spent actively working on the project. --> 100 hours
+<!-- Enter an approximate number of hours that you spent actively working on the project. --> 120 hours
 

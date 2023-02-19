@@ -95,11 +95,13 @@ void render_game(int* cells, size_t width, size_t height) {
     /* DO NOT MODIFY THIS FUNCTION */
     for (unsigned i = 0; i < width * height; ++i) {
         if (cells[i] & FLAG_SNAKE) {
-            char c = 'S';
-            ADD(i / width, i % width, c | COLOR_PAIR(COLOR_SNAKE));
+            cchar_t c;
+            setcchar(&c, L"\u2588", WA_NORMAL, COLOR_SNAKE, NULL);
+            ADDW(i / width, i % width, &c);
         } else if (cells[i] & FLAG_FOOD) {
-            char c = 'O';
-            ADD(i / width, i % width, c | COLOR_PAIR(COLOR_FOOD));
+            cchar_t c;
+            setcchar(&c, L"\xF0\x9F\x8D\x8C", WA_NORMAL, COLOR_FOOD, NULL);
+            ADDW(i / width, i % width, &c);
         } else if (cells[i] & FLAG_WALL) {
             cchar_t c;
             setcchar(&c, L"\u2588", WA_NORMAL, COLOR_WALL, NULL);

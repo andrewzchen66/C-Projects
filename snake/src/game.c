@@ -36,30 +36,29 @@ void update(int* cells, size_t width, size_t height, snake_t* snake_p,
         int* snake_head_position = snake_p->g_snake_head_position->data;
         int next_snake_head_position = *snake_head_position;
         int snake_length = length_list(snake_p->g_snake_head_position);
-        enum snake_direction* snake_dir = &(snake_p->g_snake_dir);
         int* last_position;
 
         //Process keyboard input differently based on snake size
         if (snake_length > 1) {
             switch (input) {
                 case INPUT_UP:
-                    if (*snake_dir != SNAKE_DOWN) {
-                        *snake_dir = SNAKE_UP;
+                    if (snake_p->g_snake_dir != SNAKE_DOWN) {
+                        snake_p->g_snake_dir = SNAKE_UP;
                     }
                     break;
                 case INPUT_DOWN:
-                    if (*snake_dir != SNAKE_UP) {
-                        *snake_dir = SNAKE_DOWN;
+                    if (snake_p->g_snake_dir != SNAKE_UP) {
+                        snake_p->g_snake_dir = SNAKE_DOWN;
                     }
                     break;
                 case INPUT_LEFT:
-                    if (*snake_dir != SNAKE_RIGHT) {
-                        *snake_dir = SNAKE_LEFT;
+                    if (snake_p->g_snake_dir != SNAKE_RIGHT) {
+                        snake_p->g_snake_dir = SNAKE_LEFT;
                     }
                     break;
                 case INPUT_RIGHT:
-                    if (*snake_dir != SNAKE_LEFT) {
-                        *snake_dir = SNAKE_RIGHT;
+                    if (snake_p->g_snake_dir != SNAKE_LEFT) {
+                        snake_p->g_snake_dir = SNAKE_RIGHT;
                     }
                     break;
                 case INPUT_NONE:
@@ -87,24 +86,46 @@ void update(int* cells, size_t width, size_t height, snake_t* snake_p,
 
         switch (snake_p->g_snake_dir) {
             case SNAKE_UP:
-                next_snake_head_position -= width;
+                if ((*snake_head_position) / width == 0) { //First row
+                    next_snake_head_position = (width * (height - 1) + (*snake_head_position));
+                }
+                else {
+                    next_snake_head_position -= width;
+                }
                 break;
             case SNAKE_DOWN:
-                next_snake_head_position += width;
+                if ((*snake_head_position) / width == (height - 1)) { //Last row
+                    next_snake_head_position = ((*snake_head_position) % width);
+                }
+                else {
+                    next_snake_head_position += width;
+                }
                 break;
             case SNAKE_LEFT:
-                next_snake_head_position -= 1;
+                if ((*snake_head_position) % width == 0) { //First column
+                    next_snake_head_position = (*snake_head_position) + width - 1;
+                }
+                else {
+                    next_snake_head_position -= 1;
+                }
                 break;
             case SNAKE_RIGHT:
-                next_snake_head_position += 1;
+                if ((*snake_head_position) % width == (width - 1)) { //Last column
+                    next_snake_head_position = (*snake_head_position) - width + 1;
+                }
+                else {
+                    next_snake_head_position += 1;
+                }
                 break;
         }
 
+        //Update Snake Linked List
         if (cells[next_snake_head_position] == FLAG_WALL) { //If Snake hits wall
             g_game_over = 1;
         }
         else {
             if (cells[next_snake_head_position] == FLAG_FOOD) { //If snake encounters food
+                printf("beep \a");
                 g_score++;
                 int* next_position_ptr = &next_snake_head_position;
                 insert_first(&(snake_p->g_snake_head_position), next_position_ptr, sizeof(int));
@@ -124,6 +145,7 @@ void update(int* cells, size_t width, size_t height, snake_t* snake_p,
                 g_game_over = 1;
                 free(last_position);
             }
+            //Update board
             else if ((cells[next_snake_head_position] == FLAG_FOOD) && (growing == 1)) {
                 cells[next_snake_head_position] = FLAG_SNAKE;
             }
@@ -194,6 +216,7 @@ void read_name(char* write_into) {
  */
 void teardown(int* cells, snake_t* snake_p) {
     // TODO: implement!
+    printf("\a");
     free(cells);
     int* data;
     while (snake_p->g_snake_head_position) {
