@@ -7,7 +7,7 @@ None
 ## Collaborators:
 
 ## Responsible Computing:
-Partner CS login: Ryan Eng (Don't know his login, will push once I hear back from him)
+Partner CS login: Reng1
 
 1. The Unicode Consortium originated in 1991 from the discussions of engineers Joe Becker, Lee Collins, and Mark Davis. These engineers worked at Xerox and Apple, to large American-based corporations, and sought to standarize the representation of text in software. Currently, the voting members include Adobe Inc, Amazon.com,Apple, Basis Technology Inc., Emoji ID, Emojipedia, ETCO, Google, Government of Bangladesh,
 Government of India, Government of Tamil Nadu, IBM Corporation, JoyPixels, Meta, Microsoft Corporation, Monotype Imaging, Netflix, Oracle Corporation, Salesforce, SAP SE, Sultanate of Oman, and the University of California at Berkeley. A large majority of these voting parties are based in either America or India, which highlights a lack of international representation that could limit the widespread applicability of Unicode, especially with the diversity of language being a main point that the consortium is attempting to address.
