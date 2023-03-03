@@ -2,16 +2,16 @@
 #include "dmalloc.hh"
 #include <cassert>
 #include <cstring>
+#include <list>
 
 struct dmalloc_stats g_stats = {0, 0, 0, 0, 0, 0, UINT64_MAX, 0};
+std::list<void*> g_active_addresses = {};
 
 void update_invalid(void** ptr, size_t size) {
     g_stats.nfail += 1;
     g_stats.fail_size += (size);
     *ptr = nullptr;
-    // return *ptr;
 }
-
 
 /**
  * dmalloc(sz,file,line)
@@ -30,23 +30,24 @@ void* dmalloc(size_t sz, const char* file, long line) {
     void* void_ptr;
     if ((sizeof(md) + sz) <= sz) {
         update_invalid(&void_ptr, sz);
-        // void_ptr = nullptr;
-        // g_stats.nfail += 1;
-        // g_stats.fail_size += sz;
         return void_ptr;
     }
     else {
-        void_ptr = base_malloc(sizeof(md) + sz);
+        void_ptr = base_malloc(sizeof(md) + sz + 1);
         if (void_ptr) {
             md* md_ptr = (md*) void_ptr;
+            md_ptr->upper_bound = '\a';
             md_ptr->size = sz;
-            void* payload_ptr = &*(md_ptr + 1);
-            
+            md_ptr->activity = ACTIVE;
+            void* payload_ptr = &md_ptr[1];
+            g_active_addresses.push_front(payload_ptr);
+            *((char*)payload_ptr + sz) = '\a';
             g_stats.nactive++;
             g_stats.active_size += sz;
             g_stats.total_size += sz;
             g_stats.ntotal++;
 
+            // Heap_min and heap_max
             if ((unsigned long)void_ptr < g_stats.heap_min) {
                 g_stats.heap_min = (long)void_ptr;
             }
@@ -75,14 +76,38 @@ void* dmalloc(size_t sz, const char* file, long line) {
 void dfree(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-    if (ptr) {
+    if (ptr) { //Check ptr is not a nullptr
         md* payload_ptr = (md*)ptr;
         md* md_ptr = &*(payload_ptr - 1);
         size_t sz = md_ptr->size;
-        g_stats.nactive--;
-        g_stats.active_size -= sz;
-        base_free(ptr);
-        base_free(md_ptr);
+        //Check for invalid frees outside heap range
+        if (((unsigned long) ptr < g_stats.heap_min) || ((long)ptr + sz > g_stats.heap_max)) { 
+            fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
+            abort();
+        }
+        // Checks for double frees
+        else if (md_ptr->activity == FREED) {
+            fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, double free\n", file, line, ptr);
+            abort();
+        }
+        // Checks for wild frees
+        else if (md_ptr->activity == UNTOUCHED) { //By default, UNTOUCHED is 0
+            fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not allocated\n", file, line, ptr);
+            abort();
+        }
+        //  Checks for boundary write errors
+        else if (md_ptr->upper_bound != '\a' || (*((char*)payload_ptr + sz) != '\a')) {
+            fprintf(stderr, "MEMORY BUG: %s:%ld: detected wild write during free of pointer %p\n", file, line, ptr);
+            abort();
+        }
+        else {
+            g_active_addresses.remove(ptr);
+            g_stats.nactive--;
+            g_stats.active_size -= sz;
+            md_ptr->activity = FREED;
+            base_free(payload_ptr);
+            base_free(md_ptr);
+        }
     }
 }
 
@@ -105,17 +130,11 @@ void* dcalloc(size_t nmemb, size_t sz, const char* file, long line) {
     size_t i;
     if ((nmemb * sz) <= sz) {
         update_invalid(&ptr, (nmemb * sz));
-        // g_stats.nfail += 1;
-        // g_stats.fail_size += (nmemb * sz);
-        // ptr = nullptr;
         return ptr;
     }
     for (i = 1; i <= nmemb; i++) {
         if ((sz * i) < sz) {
             update_invalid(&ptr, (nmemb * sz));
-            // g_stats.nfail += 1;
-            // g_stats.fail_size += (nmemb * sz);
-            // ptr = nullptr;
             return ptr;
         }
     }
@@ -168,4 +187,8 @@ void print_statistics() {
  */
 void print_leak_report() {
     // Your code here.
+    // std::list<void*>::iterator it;
+    // for (it = g_active_addresses.begin; it != g_active_addresses.end(); it++) {
+        
+    // }
 }
