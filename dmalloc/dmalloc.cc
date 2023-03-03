@@ -3,6 +3,16 @@
 #include <cassert>
 #include <cstring>
 
+struct dmalloc_stats g_stats = {0, 0, 0, 0, 0, 0, UINT64_MAX, 0};
+
+void update_invalid(void** ptr, size_t size) {
+    g_stats.nfail += 1;
+    g_stats.fail_size += (size);
+    *ptr = nullptr;
+    // return *ptr;
+}
+
+
 /**
  * dmalloc(sz,file,line)
  *      malloc() wrapper. Dynamically allocate the requested amount `sz` of memory and 
@@ -17,7 +27,40 @@
 void* dmalloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-    return base_malloc(sz);
+    void* void_ptr;
+    if ((sizeof(md) + sz) <= sz) {
+        update_invalid(&void_ptr, sz);
+        // void_ptr = nullptr;
+        // g_stats.nfail += 1;
+        // g_stats.fail_size += sz;
+        return void_ptr;
+    }
+    else {
+        void_ptr = base_malloc(sizeof(md) + sz);
+        if (void_ptr) {
+            md* md_ptr = (md*) void_ptr;
+            md_ptr->size = sz;
+            void* payload_ptr = &*(md_ptr + 1);
+            
+            g_stats.nactive++;
+            g_stats.active_size += sz;
+            g_stats.total_size += sz;
+            g_stats.ntotal++;
+
+            if ((unsigned long)void_ptr < g_stats.heap_min) {
+                g_stats.heap_min = (long)void_ptr;
+            }
+            if ((long)void_ptr + sizeof(md) + sz > g_stats.heap_max) {
+                g_stats.heap_max = (long)void_ptr + sizeof(md) + sz;
+            }
+            return payload_ptr;
+        }
+        else {
+            g_stats.nfail += 1;
+            g_stats.fail_size += sz;
+            return void_ptr;
+        }
+    }
 }
 
 /**
@@ -32,7 +75,15 @@ void* dmalloc(size_t sz, const char* file, long line) {
 void dfree(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
-    base_free(ptr);
+    if (ptr) {
+        md* payload_ptr = (md*)ptr;
+        md* md_ptr = &*(payload_ptr - 1);
+        size_t sz = md_ptr->size;
+        g_stats.nactive--;
+        g_stats.active_size -= sz;
+        base_free(ptr);
+        base_free(md_ptr);
+    }
 }
 
 /**
@@ -50,7 +101,25 @@ void dfree(void* ptr, const char* file, long line) {
  */
 void* dcalloc(size_t nmemb, size_t sz, const char* file, long line) {
     // Your code here (to fix test014).
-    void* ptr = dmalloc(nmemb * sz, file, line);
+    void* ptr;
+    size_t i;
+    if ((nmemb * sz) <= sz) {
+        update_invalid(&ptr, (nmemb * sz));
+        // g_stats.nfail += 1;
+        // g_stats.fail_size += (nmemb * sz);
+        // ptr = nullptr;
+        return ptr;
+    }
+    for (i = 1; i <= nmemb; i++) {
+        if ((sz * i) < sz) {
+            update_invalid(&ptr, (nmemb * sz));
+            // g_stats.nfail += 1;
+            // g_stats.fail_size += (nmemb * sz);
+            // ptr = nullptr;
+            return ptr;
+        }
+    }
+    ptr = dmalloc(nmemb * sz, file, line);
     if (ptr) {
         memset(ptr, 0, nmemb * sz);
     }
@@ -66,6 +135,15 @@ void* dcalloc(size_t nmemb, size_t sz, const char* file, long line) {
 void get_statistics(dmalloc_stats* stats) {
     // Stub: set all statistics to enormous numbers
     memset(stats, 255, sizeof(dmalloc_stats));
+    stats->nactive = g_stats.nactive;
+    stats->active_size = g_stats.active_size;
+    stats->ntotal = g_stats.ntotal;
+    stats->total_size = g_stats.total_size;
+    stats->nfail = g_stats.nfail;
+    stats->fail_size = g_stats.fail_size;
+    stats->heap_min = g_stats.heap_min;
+    stats->heap_max = g_stats.heap_max;
+
     // Your code here.
 }
 

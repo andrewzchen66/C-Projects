@@ -57,6 +57,10 @@ struct dmalloc_stats {
     uintptr_t heap_max;                 // largest allocated addr
 };
 
+struct md { //metadata
+    size_t size;
+};
+
 /**
  * get_statistics(stats)
  *      fill a dmalloc_stats pointer with the current memory statistics
