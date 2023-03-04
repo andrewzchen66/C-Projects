@@ -80,7 +80,6 @@ void dfree(void* ptr, const char* file, long line) {
     // Your code here.
     if (ptr) { //Check ptr is not a nullptr
         md* payload_ptr = (md*)ptr;
-        md* md_ptr = &*(payload_ptr - 1);
         //Check for invalid frees outside heap range
         if (((unsigned long) ptr <= g_stats.heap_min) || ((unsigned long)ptr > g_stats.heap_max)) { 
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
@@ -105,6 +104,7 @@ void dfree(void* ptr, const char* file, long line) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, double free\n", file, line, ptr);
             abort();
         }
+        md* md_ptr = &*(payload_ptr - 1);
         size_t sz = md_ptr->size;
         //  Checks for boundary write errors
         if (md_ptr->upper_bound != '\a' || (*((char*)payload_ptr + sz) != '\a')) {
