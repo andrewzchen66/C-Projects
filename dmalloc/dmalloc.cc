@@ -3,9 +3,11 @@
 #include <cassert>
 #include <cstring>
 #include <list>
+#include<unordered_map>
 
 struct dmalloc_stats g_stats = {0, 0, 0, 0, 0, 0, UINT64_MAX, 0};
-std::list<void*> g_active_addresses = {};
+std::unordered_map<void*, int> g_active_addresses;
+// std::list<void*> g_active_addresses = {};
 
 void update_invalid(void** ptr, size_t size) {
     g_stats.nfail += 1;
@@ -38,9 +40,10 @@ void* dmalloc(size_t sz, const char* file, long line) {
             md* md_ptr = (md*) void_ptr;
             md_ptr->upper_bound = '\a';
             md_ptr->size = sz;
-            md_ptr->activity = ACTIVE;
+            // md_ptr->activity = ACTIVE;
             void* payload_ptr = &md_ptr[1];
-            g_active_addresses.push_front(payload_ptr);
+            // g_active_addresses.push_front(payload_ptr);
+            g_active_addresses[payload_ptr] = 1;
             *((char*)payload_ptr + sz) = '\a';
             g_stats.nactive++;
             g_stats.active_size += sz;
@@ -77,34 +80,35 @@ void dfree(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
     if (ptr) { //Check ptr is not a nullptr
-        md* payload_ptr = (md*)ptr;
-        md* md_ptr = &*(payload_ptr - 1);
-        size_t sz = md_ptr->size;
         //Check for invalid frees outside heap range
-        if (((unsigned long) ptr < g_stats.heap_min) || ((long)ptr + sz > g_stats.heap_max)) { 
+        if (((unsigned long) ptr < g_stats.heap_min) || ((unsigned long)ptr > g_stats.heap_max)) { 
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
             abort();
         }
-        // Checks for double frees
-        else if (md_ptr->activity == FREED) {
-            fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, double free\n", file, line, ptr);
-            abort();
-        }
         // Checks for wild frees
-        else if (md_ptr->activity == UNTOUCHED) { //By default, UNTOUCHED is 0
+        if (g_active_addresses.count(ptr) == 0) {//md_ptr->activity == UNTOUCHED) { //By default, UNTOUCHED is 0
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not allocated\n", file, line, ptr);
             abort();
         }
+        // Checks for double frees
+        if (g_active_addresses[ptr] == 0) { //(md_ptr->activity == FREED) {
+            fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, double free\n", file, line, ptr);
+            abort();
+        }
+        md* payload_ptr = (md*)ptr;
+        md* md_ptr = &*(payload_ptr - 1);
+        size_t sz = md_ptr->size;
         //  Checks for boundary write errors
-        else if (md_ptr->upper_bound != '\a' || (*((char*)payload_ptr + sz) != '\a')) {
+        if (md_ptr->upper_bound != '\a' || (*((char*)payload_ptr + sz) != '\a')) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: detected wild write during free of pointer %p\n", file, line, ptr);
             abort();
         }
         else {
-            g_active_addresses.remove(ptr);
+            // g_active_addresses.remove(ptr);
+            g_active_addresses[ptr] = 0;
             g_stats.nactive--;
             g_stats.active_size -= sz;
-            md_ptr->activity = FREED;
+            // md_ptr->activity = FREED;
             base_free(payload_ptr);
             base_free(md_ptr);
         }
