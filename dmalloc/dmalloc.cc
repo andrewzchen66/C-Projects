@@ -34,7 +34,10 @@ void* dmalloc(size_t sz, const char* file, long line) {
         return void_ptr;
     }
     else {
-        void_ptr = base_malloc(sizeof(md) + sz + 100);
+        void_ptr = base_malloc(sizeof(md) + sz + 200);
+        if ((sizeof(md) + sz + 200) < (sizeof(md) + sz)) {
+            void_ptr = nullptr;
+        }
         if (void_ptr) {
             md* md_ptr = (md*) void_ptr;
             md_ptr->upper_bound = '\a';
