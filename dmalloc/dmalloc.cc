@@ -7,7 +7,6 @@
 
 struct dmalloc_stats g_stats = {0, 0, 0, 0, 0, 0, UINT64_MAX, 0};
 std::unordered_map<void*, int> g_active_addresses;
-// std::list<void*> g_active_addresses = {};
 
 void update_invalid(void** ptr, size_t size) {
     g_stats.nfail += 1;
@@ -40,9 +39,9 @@ void* dmalloc(size_t sz, const char* file, long line) {
             md* md_ptr = (md*) void_ptr;
             md_ptr->upper_bound = '\a';
             md_ptr->size = sz;
-            // md_ptr->activity = ACTIVE;
+            md_ptr->file = file;
+            md_ptr->line = line;
             void* payload_ptr = &md_ptr[1];
-            // g_active_addresses.push_front(payload_ptr);
             g_active_addresses[payload_ptr] = 1;
             *((char*)payload_ptr + sz) = '\a';
             g_stats.nactive++;
@@ -50,7 +49,7 @@ void* dmalloc(size_t sz, const char* file, long line) {
             g_stats.total_size += sz;
             g_stats.ntotal++;
 
-            // Heap_min and heap_max
+            // heap_min and heap_max
             if ((unsigned long)void_ptr < g_stats.heap_min) {
                 g_stats.heap_min = (long)void_ptr;
             }
@@ -81,17 +80,17 @@ void dfree(void* ptr, const char* file, long line) {
     // Your code here.
     if (ptr) { //Check ptr is not a nullptr
         //Check for invalid frees outside heap range
-        if (((unsigned long) ptr < g_stats.heap_min) || ((unsigned long)ptr > g_stats.heap_max)) { 
+        if (((unsigned long) ptr <= g_stats.heap_min) || ((unsigned long)ptr > g_stats.heap_max)) { 
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
             abort();
         }
         // Checks for wild frees
-        if (g_active_addresses.count(ptr) == 0) {//md_ptr->activity == UNTOUCHED) { //By default, UNTOUCHED is 0
+        if (g_active_addresses.count(ptr) == 0) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not allocated\n", file, line, ptr);
             abort();
         }
         // Checks for double frees
-        if (g_active_addresses[ptr] == 0) { //(md_ptr->activity == FREED) {
+        if (g_active_addresses[ptr] == 0) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, double free\n", file, line, ptr);
             abort();
         }
@@ -104,11 +103,9 @@ void dfree(void* ptr, const char* file, long line) {
             abort();
         }
         else {
-            // g_active_addresses.remove(ptr);
             g_active_addresses[ptr] = 0;
             g_stats.nactive--;
             g_stats.active_size -= sz;
-            // md_ptr->activity = FREED;
             base_free(payload_ptr);
             base_free(md_ptr);
         }
@@ -190,9 +187,11 @@ void print_statistics() {
  *      memory.
  */
 void print_leak_report() {
-    // Your code here.
-    // std::list<void*>::iterator it;
-    // for (it = g_active_addresses.begin; it != g_active_addresses.end(); it++) {
-        
-    // }
+    for (auto i : g_active_addresses) {
+        if (i.second == 1) {
+            md* payload_ptr = (md*)i.first;
+            md md_ptr = *(payload_ptr - 1);
+            printf("LEAK CHECK: %s:%ld: allocated object %p with size %ld\n", md_ptr.file, md_ptr.line, i.first, md_ptr.size);
+        }
+    }
 }

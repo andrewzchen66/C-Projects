@@ -57,12 +57,11 @@ struct dmalloc_stats {
     uintptr_t heap_max;                 // largest allocated addr
 };
 
-// enum mem_status{UNTOUCHED, ACTIVE, FREED}; //By default, Untouched is 0
-
 struct md { //metadata
     char upper_bound;
     size_t size;
-    // enum mem_status activity;
+    const char* file;
+    long line;
 };
 
 /**
