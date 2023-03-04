@@ -34,7 +34,7 @@ void* dmalloc(size_t sz, const char* file, long line) {
         return void_ptr;
     }
     else {
-        void_ptr = base_malloc(sizeof(md) + sz + sizeof(int));
+        void_ptr = base_malloc(sizeof(md) + sz + 100);
         if (void_ptr) {
             md* md_ptr = (md*) void_ptr;
             md_ptr->upper_bound = '\a';
@@ -79,6 +79,8 @@ void dfree(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
     if (ptr) { //Check ptr is not a nullptr
+        md* payload_ptr = (md*)ptr;
+        md* md_ptr = &*(payload_ptr - 1);
         //Check for invalid frees outside heap range
         if (((unsigned long) ptr <= g_stats.heap_min) || ((unsigned long)ptr > g_stats.heap_max)) { 
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
@@ -87,15 +89,22 @@ void dfree(void* ptr, const char* file, long line) {
         // Checks for wild frees
         if (g_active_addresses.count(ptr) == 0) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not allocated\n", file, line, ptr);
-            abort();
+            for (auto i : g_active_addresses) {
+                if (i.second == 1) {
+                    md* i_payload_ptr = (md*)i.first;
+                    md* i_md_ptr = &*(i_payload_ptr - 1);
+                    if ((payload_ptr > i_payload_ptr) && (payload_ptr < i_payload_ptr + i_md_ptr->size)) {
+                        fprintf(stderr, "%s:%ld: %p is %ld bytes inside a %ld byte region allocated here\n", i_md_ptr->file, i_md_ptr->line, ptr, ((long)payload_ptr - (long)i_payload_ptr), i_md_ptr->size); 
+                        abort(); 
+                    }    
+                }
+            }
         }
         // Checks for double frees
         if (g_active_addresses[ptr] == 0) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, double free\n", file, line, ptr);
             abort();
         }
-        md* payload_ptr = (md*)ptr;
-        md* md_ptr = &*(payload_ptr - 1);
         size_t sz = md_ptr->size;
         //  Checks for boundary write errors
         if (md_ptr->upper_bound != '\a' || (*((char*)payload_ptr + sz) != '\a')) {
