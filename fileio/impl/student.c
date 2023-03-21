@@ -24,7 +24,7 @@
     When starting, you might want to change this for testing on small files.
 */
 #ifndef CACHE_SIZE
-#define CACHE_SIZE 8 //4096
+#define CACHE_SIZE 4096
 #endif
 
 #if(CACHE_SIZE < 4)
@@ -190,7 +190,7 @@ int io300_seek(struct io300_file *const f, off_t const pos) {
     // }
     
     f->file_offset = pos;
-    return lseek(f->fd, pos, SEEK_SET);
+    return lseek(f->fd, f->file_offset, SEEK_SET);
 }
 
 int io300_close(struct io300_file *const f) {
@@ -224,71 +224,44 @@ int io300_readc(struct io300_file *const f) {
     // TODO: Implement this
     
     // Naive Implementation
-    unsigned char c;
-    if (read(f->fd, &c, 1) == 1) {
-        return c;
-    } else {
-        return -1;
-    }
-
-
     // unsigned char c;
-    // // int result;
-    // //reached or passed the end of file
-    // if (f->file_offset >= f->file_size) {
+    // if (read(f->fd, &c, 1) == 1) {
+    //     return c;
+    // } else {
     //     return -1;
     // }
-    // //first ever read on file
-    // else if (f->cache_initialized == 0) {
-    //     f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
-    //     f->cache_initialized = 1;
-    //     f->cache_cleared = 0;
-    // }
-    // // else if ((f->file_offset == 0) && (f->cache_initialized == 0)) {
-    // //     read(f->fd, f->cache, CACHE_SIZE);
-    // //     f->cache_initialized = 1;
-    // //     f->cache_min = 0;
-    // //     f->cache_offset = 0;
-    // //     f->cache_cleared = 0;
-    // // }
-    // //current cache range doesn't contain where the read is occuring 
-    // else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
-    // // else if (f->file_offset == f->cache_min + CACHE_SIZE) {
-    //     // f->file_offset = (int)pos;
-    //     f->cache_offset = 0;
-    //     // f->cache_cleared = 1;
-    //     f->cache_min = f->file_offset;
-    //     // lseek(f->fd, f->file_offset, SEEK_SET);
-    //     // io300_seek(f, f->file_offset);
-    //     f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
-    //     f->cache_cleared = 0;
-    // }
-    // // Trying to directly read into 
-    
-    // // //trying to read from a full cache
-    // // else if (f->cache_offset == CACHE_SIZE) {
-    // //     io300_flush(f);
-    // //     // for (int i = 0; i < CACHE_SIZE; i++) {
-    // //     //     f->cache[i] = '\0';
-    // //     // }
-    // // }
-    
-    // //Return the char
-    // c = f->cache[f->cache_offset];
-    // f->file_offset++;
-    // f->cache_offset++;
-    // f->stats.read_calls++;
-    // return c;
+
+
+    unsigned char c;
+    //reached or passed the end of file
+    if (f->file_offset >= f->file_size) {
+        return -1;
+    }
+    //first ever read on file
+    else if (f->cache_initialized == 0) {
+        f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+        f->cache_initialized = 1;
+        f->cache_cleared = 0;
+    }
+    else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
+        f->cache_offset = 0;
+        f->cache_min = f->file_offset;
+        f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+        f->cache_cleared = 0;
+    }
+    //Return the char
+    c = f->cache[f->cache_offset];
+    f->file_offset++;
+    f->cache_offset++;
+    f->stats.read_calls++;
+    return c;
 }
 int io300_writec(struct io300_file *f, int ch) {
     check_invariants(f);
     
 
     // TODO: Implement this
-    // if (f->file_offset >= io300_filesize(f)) {
-    //     return -1;
-    // }
-    char const c = (char)ch;
+    unsigned char const c = (char)ch;
     //if writing outside the bounds of the filesize
     if (f->file_offset >= f->file_size) {
         f->file_size++;
@@ -298,15 +271,6 @@ int io300_writec(struct io300_file *f, int ch) {
             f->cache_amt = 1;
             f->cache_cleared = 0;
         }
-        // //reached end of cache
-        // if (f->file_offset == (f->cache_min + CACHE_SIZE)) {
-        //     io300_flush(f);
-        //     lseek(f->fd, f->file_offset, SEEK_SET);
-        //     f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
-        //     f->cache_cleared = 0;
-        //     f->cache_offset = 0;
-        //     f->cache_min = f->file_offset;
-        // }
         //current cache range doesn't contain where the write is occuring due to seeks
         else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
             io300_flush(f);
@@ -314,8 +278,6 @@ int io300_writec(struct io300_file *f, int ch) {
             f->cache_cleared = 0;
             f->cache_offset = 0;
             f->cache_min = f->file_offset;
-            // lseek(f->fd, f->file_offset, SEEK_SET);
-            // io300_seek(f, f->file_offset);
         }
     }
     //if writing inside the bounds of the filesize
@@ -326,15 +288,6 @@ int io300_writec(struct io300_file *f, int ch) {
             f->cache_initialized = 1;
             f->cache_cleared = 0;
         }
-        // //reached end of cache
-        // if (f->file_offset == (f->cache_min + CACHE_SIZE)) {
-        //     io300_flush(f);
-        //     lseek(f->fd, f->file_offset, SEEK_SET);
-        //     f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
-        //     f->cache_cleared = 0;
-        //     f->cache_offset = 0;
-        //     f->cache_min = f->file_offset;
-        // }
         //current cache range doesn't contain where the write is occuring due to seeks
         else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
             io300_flush(f);
@@ -344,6 +297,10 @@ int io300_writec(struct io300_file *f, int ch) {
             f->cache_min = f->file_offset;
             // lseek(f->fd, f->file_offset, SEEK_SET);
             // io300_seek(f, f->file_offset);
+        }
+        //current cache range does contain where the write is occuring
+        else {
+            f->cache_offset = f->file_offset - f->cache_min;
         }
     }
 
