@@ -54,7 +54,7 @@ int io300_readc(struct io300_file *f);
     Return the byte that was written upon success and -1 on failure.
 */
 int io300_writec(struct io300_file *f, int ch);
-
+    
 
 /*
     Read `nbytes` from the file into `buff`. Assume that the buffer is large enough.
