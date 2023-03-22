@@ -53,7 +53,6 @@ struct io300_file {
     int file_offset;
     int cache_offset;
     int unflushed_write_calls;
-    int cache_cleared;
     int cache_initialized;
     int cache_amt;
     int file_size;
@@ -83,7 +82,6 @@ static void check_invariants(struct io300_file *f) {
     assert(f->file_offset >= 0);
     assert(f->cache_offset >= 0);
     assert(f->unflushed_write_calls >= 0);
-    assert((f->cache_cleared == 0) || (f->cache_cleared == 1));
     assert((f->cache_initialized == 0) || (f->cache_initialized == 1));
     assert(f->cache_amt >= 0);
 }
@@ -153,7 +151,6 @@ struct io300_file *io300_open(const char *const path, char *description) {
     ret->file_offset = 0;
     ret->cache_offset = 0;
     ret->unflushed_write_calls = 0;
-    ret->cache_cleared = 1;
     ret->cache_initialized = 0;
     ret->cache_amt = 1;
     ret->file_size = io300_filesize(ret);
@@ -220,14 +217,12 @@ int io300_readc(struct io300_file *const f) {
         f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
         f->stats.read_calls++;
         f->cache_initialized = 1;
-        f->cache_cleared = 0;
     }
     else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
         f->cache_offset = 0;
         f->cache_min = f->file_offset;
         f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
         f->stats.read_calls++;
-        f->cache_cleared = 0;
     }
     //Return the char
     c = f->cache[f->cache_offset];
@@ -247,13 +242,11 @@ int io300_writec(struct io300_file *f, int ch) {
         if (f->cache_initialized == 0) {
             f->cache_initialized = 1;
             f->cache_amt = 1;
-            f->cache_cleared = 0;
         }
         //current cache range doesn't contain where the write is occuring due to seeks
         else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
             io300_flush(f);
             f->cache_amt = 1;
-            f->cache_cleared = 0;
             f->cache_offset = 0;
             f->cache_min = f->file_offset;
         }
@@ -265,14 +258,12 @@ int io300_writec(struct io300_file *f, int ch) {
             f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
             f->stats.read_calls++;
             f->cache_initialized = 1;
-            f->cache_cleared = 0;
         }
         //current cache range doesn't contain where the write is occuring due to seeks
         else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
             io300_flush(f);
             f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
             f->stats.read_calls++;
-            f->cache_cleared = 0;
             f->cache_offset = 0;
             f->cache_min = f->file_offset;
             // lseek(f->fd, f->file_offset, SEEK_SET);
@@ -286,7 +277,6 @@ int io300_writec(struct io300_file *f, int ch) {
 
     //Write the char
     f->cache[f->cache_offset] = c;
-    f->cache_cleared = 0;
     f->file_offset++;
     f->cache_offset++;
     if (f->cache_offset >= f->cache_amt) {
@@ -321,7 +311,6 @@ ssize_t io300_read(struct io300_file *const f, char *const buff, size_t const sz
     else if (f->cache_initialized == 0) {
         f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
         f->cache_initialized = 1;
-        f->cache_cleared = 0;
         f->stats.read_calls++;
     }
     //file_offset is outside current cache bounds due to seek call
@@ -329,7 +318,6 @@ ssize_t io300_read(struct io300_file *const f, char *const buff, size_t const sz
         f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
         f->cache_min = f->file_offset;
         f->cache_offset = 0;
-        f->cache_cleared = 0;
         f->stats.read_calls++;
     }
     //seek changed the file_offset position within the current cache
@@ -428,8 +416,6 @@ ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const s
             f->cache_min = f->file_offset;
             f->cache_offset = 0;
             f->cache_amt = 0;
-            f->cache_cleared = 0;
-            
         }
         //file_offset is outside current cache bounds due to seek call
         else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
@@ -437,7 +423,6 @@ ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const s
             f->cache_min = f->file_offset;
             f->cache_offset = 0;
             f->cache_amt = 1;
-            f->cache_cleared = 0;
         }
         // seek changed the file_offset position within the current cache
         else if (f->cache_offset != (f->file_offset - f->cache_min)){
@@ -466,7 +451,6 @@ ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const s
             f->file_offset += sz;
             f->cache_offset = sz;
             f->cache_amt = sz;
-            f->cache_cleared = 0;
             f->unflushed_write_calls++;
             return sz;
         }
@@ -479,7 +463,6 @@ ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const s
             f->cache_initialized = 1;
             f->cache_min = f->file_offset;
             f->cache_offset = 0;
-            f->cache_cleared = 0;
             f->stats.read_calls++;
         }
         //file_offset is outside current cache bounds due to seek call
@@ -489,7 +472,6 @@ ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const s
             f->stats.read_calls++;
             f->cache_min = f->file_offset;
             f->cache_offset = 0;
-            f->cache_cleared = 0;
         }
         // seek changed the file_offset position within the current cache
         else if (f->cache_offset != (f->file_offset - f->cache_min)){
@@ -513,7 +495,6 @@ ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const s
             memcpy(f->cache, buff, sz);
             f->file_offset += sz;
             f->cache_offset = sz;
-            f->cache_cleared = 0;
             f->unflushed_write_calls++;
             return sz;
         }
@@ -530,7 +511,5 @@ int io300_flush(struct io300_file *const f) {
         f->unflushed_write_calls = 0;
         f->stats.write_calls++;
     }
-    //clear cache
-    f->cache_cleared = 1;
     return 0;
 }
