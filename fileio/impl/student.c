@@ -148,13 +148,12 @@ struct io300_file *io300_open(const char *const path, char *description) {
     ret->description = description;
     // TODO: Initialize your file
     ret->cache_min = 0;
-    //int cache_amt;
     ret->file_offset = 0;
     ret->cache_offset = 0;
     ret->unflushed_write_calls = 0;
     ret->cache_cleared = 1;
     ret->cache_initialized = 0;
-    ret->cache_amt = 0;
+    ret->cache_amt = 1;
     ret->file_size = io300_filesize(ret);
     check_invariants(ret);
     dbg(ret, "Just finished initializing file from path: %s\n", path);
@@ -240,6 +239,7 @@ int io300_readc(struct io300_file *const f) {
     //first ever read on file
     else if (f->cache_initialized == 0) {
         f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+        f->stats.read_calls++;
         f->cache_initialized = 1;
         f->cache_cleared = 0;
     }
@@ -247,13 +247,13 @@ int io300_readc(struct io300_file *const f) {
         f->cache_offset = 0;
         f->cache_min = f->file_offset;
         f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+        f->stats.read_calls++;
         f->cache_cleared = 0;
     }
     //Return the char
     c = f->cache[f->cache_offset];
     f->file_offset++;
     f->cache_offset++;
-    f->stats.read_calls++;
     return c;
 }
 int io300_writec(struct io300_file *f, int ch) {
@@ -285,6 +285,7 @@ int io300_writec(struct io300_file *f, int ch) {
         //first ever write on file
         if (f->cache_initialized == 0) {
             f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+            f->stats.read_calls++;
             f->cache_initialized = 1;
             f->cache_cleared = 0;
         }
@@ -292,6 +293,7 @@ int io300_writec(struct io300_file *f, int ch) {
         else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
             io300_flush(f);
             f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+            f->stats.read_calls++;
             f->cache_cleared = 0;
             f->cache_offset = 0;
             f->cache_min = f->file_offset;
@@ -325,48 +327,102 @@ int io300_writec(struct io300_file *f, int ch) {
 ssize_t io300_read(struct io300_file *const f, char *const buff, size_t const sz) {
     check_invariants(f);
     // TODO: Implement this
-    // Naive Implementation
-    return read(f->fd, buff, sz);
+    // // Naive Implementation
+    // return read(f->fd, buff, sz);
 
-    // //If we are reading more than cache can hold, then it's more efficient to not use cache
-    // if (sz >= CACHE_SIZE) {
-    //     return read(f->fd, buff, sz);
-    // }
-    // //Error if outside range of filesize
-    // else if (f->file_offset >= f->file_size) {
-    //     return -1;
-    // }
-    // //first ever read on file
-    // else if (f->cache_initialized == 0) {
-    //     f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
-    //     f->cache_initialized = 1;
-    //     f->cache_cleared = 0;
-    // }
-    // //file_offset is outside current cache bounds due to seek call
-    // else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
-    //     memcpy(buff, f->cache, f->cache_offset);
+    //If we are reading more than a whole cache size can hold, then it's more efficient to not use cache
+    if (sz >= CACHE_SIZE) {
+        f->stats.read_calls++;
+        return read(f->fd, buff, sz);
+    }
+    //If we are reading from outside the file_size, then read is 0
+    else if (f->file_offset >= f->file_size) {
+        return 0;
+    }
+    //Check cache_amt is valid
+    else if (f->cache_initialized == 0) {
+        f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+        f->cache_initialized = 1;
+        f->cache_cleared = 0;
+        f->stats.read_calls++;
+    }
+    //file_offset is outside current cache bounds due to seek call
+    else if ((f->file_offset < f->cache_min) || (f->file_offset >= f->cache_min + CACHE_SIZE)) {
+        f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+        f->cache_min = f->file_offset;
+        f->cache_offset = 0;
+        f->cache_cleared = 0;
+        f->stats.read_calls++;
+    }
+    //seek changed the file_offset position within the current cache
+    else {
+        f->cache_offset = f->file_offset - f->cache_min;
+    }
+
+    int buff_length;
+    //Check cache_amt is valid
+    if ((f->cache_amt == -1) || (f->cache_amt == 0)) {
+        return f->cache_amt;
+    }
+    //Can't write all sz bytes because file isn't long enough
+    else if ((f->file_offset + (int)sz) > f->file_size) {
+        buff_length = f->cache_amt - f->cache_offset;
+        memcpy(buff, &(f->cache[f->cache_offset]), buff_length);
+        f->file_offset = f->cache_min + f->cache_amt;
+        f->cache_offset = f->cache_amt;    
         
-    //     f->cache_offset = sz;
-    //     f->cache_min = f->file_offset;
-    //     f->file_offset += sz;
-    //     f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
-    //     f->cache_cleared = 0;
-    //     f->stats.read_calls++;
-    //     return sz;
-    // }
-    // //seek changed the file_offset position within the current cache
-    // else if () {
+        // cache reached end of file
+        if (f->file_offset == f->file_size) {
+            return buff_length;
+        }
+        // next cache is needed
+        else {
+            // read next cache values
+            f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+            char *const buff2 = &(buff[buff_length]);
+            f->cache_offset = 0;
+            f->cache_min = f->file_offset;
+            f->stats.read_calls++;
 
-    // }
+            // add relevant bytes to buff2
+            memcpy(buff2, f->cache, f->cache_amt); 
+            buff_length += f->cache_amt;
+            f->file_offset = f->cache_min + f->cache_amt;
+            f->cache_offset = f->cache_amt;   
+            f->file_offset = f->file_size;
+            return buff_length;
+        }
+    }
+    // All sz bytes can be written into buffer
+    else {
+        // current cache is enough
+        if ((f->cache_offset + sz) <= CACHE_SIZE) {
+            buff_length = sz;
+            memcpy(buff, &(f->cache[f->cache_offset]), buff_length);
+            f->file_offset += buff_length;
+            f->cache_offset += buff_length; 
+            return buff_length;
+        }
+        // need a new cache
+        else {
+            // copy over rest of current buffer
+            buff_length = f->cache_amt - f->cache_offset;
+            memcpy(buff, &(f->cache[f->cache_offset]), buff_length);
 
-    // //file_offset + sz is outside current cache bounds
-    
-    // //Return the char
-    // c = f->cache[f->cache_offset];
-    // f->file_offset += sz;
-    // f->cache_offset++;
-    // f->stats.read_calls++;
-    // return f->cache_amt - f->cache_offset;
+            // read next cache values
+            f->cache_amt = read(f->fd, f->cache, CACHE_SIZE);
+            char *const buff2 = &(buff[buff_length]);
+            f->cache_min = f->file_offset + buff_length;
+            f->stats.read_calls++;
+
+            // add relevant bytes to buff2
+            memcpy(buff2, f->cache, sz - buff_length); 
+            buff_length = sz;
+            f->file_offset += buff_length;
+            f->cache_offset = f->file_offset - f->cache_min;
+            return buff_length;
+        }
+    }
 }
 ssize_t io300_write(struct io300_file *const f, const char *buff, size_t const sz) {
     check_invariants(f);
@@ -384,6 +440,7 @@ int io300_flush(struct io300_file *const f) {
     if (f->unflushed_write_calls != 0) {
         pwrite(f->fd, f->cache, f->cache_amt, f->cache_min);
         f->unflushed_write_calls = 0;
+        f->stats.write_calls++;
     }
     //clear cache
     f->cache_cleared = 1;
