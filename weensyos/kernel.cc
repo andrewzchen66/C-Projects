@@ -357,9 +357,13 @@ int syscall_page_alloc(uintptr_t addr) {
     assert(!pages[addr / PAGESIZE].used());
     // Currently we're simply using the physical page that has the same address
     // as `addr` (which is a virtual address).
-    pages[addr / PAGESIZE].refcount = 1;
-    memset((void*) addr, 0, PAGESIZE);
-    return 0;
+    if (addr >=  PROC_START_ADDR) {
+        pages[addr / PAGESIZE].refcount = 1;
+        memset((void*) addr, 0, PAGESIZE);
+        return 0;
+    }
+    return -1;
+    
 }
 
 // syscall_fork()
