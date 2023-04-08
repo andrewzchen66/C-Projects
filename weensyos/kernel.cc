@@ -128,8 +128,7 @@ void* kalloc(size_t sz) {
         uintptr_t pa = next_alloc_pa;
         next_alloc_pa += PAGESIZE;
 
-        if (allocatable_physical_address(pa)
-            && !pages[pa / PAGESIZE].used()) {
+        if (allocatable_physical_address(pa) && !pages[pa / PAGESIZE].used()) {
             pages[pa / PAGESIZE].refcount = 1;
             memset((void*) pa, 0xCC, PAGESIZE);
             return (void*) pa;
@@ -160,7 +159,17 @@ void process_setup(pid_t pid, const char* program_name) {
 
     // Initialize this process's page table. Notice how we are currently
     // sharing the kernel's page table.
-    ptable[pid].pagetable = kernel_pagetable;
+    ptable[pid].pagetable = (x86_64_pagetable*) kalloc(PAGESIZE);
+    memset((void*) ptable[pid].pagetable, 0, PAGESIZE);
+    
+    //Copies relevant kernel_pagetable perms into process's pagetable
+    vmiter proc_it(ptable[pid].pagetable);
+    for (vmiter kern_it(kernel_pagetable); kern_it.va() < PROC_START_ADDR; kern_it += PAGESIZE) {
+        proc_it.map(proc_it.va(), kern_it.perm());
+        proc_it += PAGESIZE;
+    }
+
+
 
     // Initialize `program_loader`.
     // The `program_loader` is an iterator that visits segments of executables.
@@ -175,6 +184,11 @@ void process_setup(pid_t pid, const char* program_name) {
              a < loader.va() + loader.size();
              a += PAGESIZE) {
             // `a` is the virtual address of the current segment's page.
+            
+            // set user-accessible perms for data/code segment
+            vmiter proc2_it(ptable[pid].pagetable, a);
+            proc2_it.map(proc2_it.va(), PTE_P | PTE_W | PTE_U);
+            
             assert(!pages[a / PAGESIZE].used());
             // Read the description on the `pages` array if you're confused about what it is.
             // Here, we're directly getting the page that has the same physical address as the
@@ -195,6 +209,11 @@ void process_setup(pid_t pid, const char* program_name) {
 
     // We also need to allocate a page for the stack.
     uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
+
+    //Set correct user-accessible perms for stack
+    vmiter proc_stack_it(ptable[pid].pagetable, stack_addr);
+    proc_stack_it.map(proc_stack_it.va(), PTE_P | PTE_W | PTE_U);
+
     assert(!pages[stack_addr / PAGESIZE].used());
     // Again, we're using the physical page that has the same address as the `stack_addr` to
     // maintain the one-to-one mapping between physical and virtual memory (you will have to change
@@ -357,9 +376,11 @@ int syscall_page_alloc(uintptr_t addr) {
     assert(!pages[addr / PAGESIZE].used());
     // Currently we're simply using the physical page that has the same address
     // as `addr` (which is a virtual address).
-    if (addr >=  PROC_START_ADDR) {
+    if ((addr >=  PROC_START_ADDR) && (addr < MEMSIZE_VIRTUAL) && (addr % PAGESIZE == 0)) {
         pages[addr / PAGESIZE].refcount = 1;
         memset((void*) addr, 0, PAGESIZE);
+        vmiter proc_it(ptable[current->pid].pagetable, addr);
+        proc_it.map(proc_it.va(), PTE_P | PTE_W | PTE_U);
         return 0;
     }
     return -1;
