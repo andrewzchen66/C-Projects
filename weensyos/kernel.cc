@@ -211,19 +211,20 @@ void process_setup(pid_t pid, const char* program_name) {
     ptable[pid].regs.reg_rip = loader.entry();
 
     // We also need to allocate a page for the stack.
-    uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
+    // uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
+    uintptr_t stack_addr = MEMSIZE_VIRTUAL - PAGESIZE;
 
     // assert(!pages[stack_addr / PAGESIZE].used());
     // Again, we're using the physical page that has the same address as the `stack_addr` to
     // maintain the one-to-one mapping between physical and virtual memory (you will have to change
     // this later).
-    // pages[stack_addr / PAGESIZE].refcount = 1;
     uintptr_t next_page = (uintptr_t) kalloc(PAGESIZE);
     assert(pages[next_page / PAGESIZE].used());
 
     //Set correct user-accessible perms for stack
     vmiter proc_stack_it(ptable[pid].pagetable, stack_addr);
     proc_stack_it.map(next_page, PTE_P | PTE_W | PTE_U);
+
 
     // Set %rsp to the start of the stack.
     ptable[pid].regs.reg_rsp = stack_addr + PAGESIZE;
@@ -382,9 +383,8 @@ int syscall_page_alloc(uintptr_t addr) {
     // assert(!pages[addr / PAGESIZE].used());
     // Currently we're simply using the physical page that has the same address
     // as `addr` (which is a virtual address).
-    if ((addr >=  PROC_START_ADDR) && (addr < MEMSIZE_VIRTUAL) && (addr % PAGESIZE == 0)) {
-        // pages[addr / PAGESIZE].refcount = 1;
-        uintptr_t next_page = (uintptr_t) kalloc(PAGESIZE);
+    uintptr_t next_page = (uintptr_t) kalloc(PAGESIZE);
+    if ((addr >=  PROC_START_ADDR) && (addr < MEMSIZE_VIRTUAL) && (addr % PAGESIZE == 0) && ((void*) next_page != nullptr)) {
         assert(pages[next_page / PAGESIZE].used());
 
         memset((void*) next_page, 0, PAGESIZE);
