@@ -185,23 +185,26 @@ void process_setup(pid_t pid, const char* program_name) {
              a += PAGESIZE) {
             // `a` is the virtual address of the current segment's page.
             
-            // set user-accessible perms for data/code segment
-            vmiter proc2_it(ptable[pid].pagetable, a);
-            proc2_it.map(proc2_it.va(), PTE_P | PTE_W | PTE_U);
-            
-            assert(!pages[a / PAGESIZE].used());
+            // assert(!pages[a / PAGESIZE].used());
             // Read the description on the `pages` array if you're confused about what it is.
             // Here, we're directly getting the page that has the same physical address as the
             // virtual address `a`, and claiming that page by incrementing its reference count
             // (you will have to change this later).
-            pages[a / PAGESIZE].refcount = 1;
+            // pages[a / PAGESIZE].refcount = 1;
+            uintptr_t next_page = (uintptr_t) kalloc(PAGESIZE);
+            assert(pages[next_page / PAGESIZE].used());
+
+            // set user-accessible perms for data/code segment
+            vmiter proc2_it(ptable[pid].pagetable, a);
+            proc2_it.map(next_page, PTE_P | PTE_W | PTE_U);
         }
     }
 
     // We now copy instructions and data into memory that we just allocated.
     for (loader.reset(); loader.present(); ++loader) {
-        memset((void*) loader.va(), 0, loader.size());
-        memcpy((void*) loader.va(), loader.data(), loader.data_size());
+        vmiter proc3_it(ptable[pid].pagetable, loader.va());
+        memset((void*) proc3_it.pa(), 0, loader.size());
+        memcpy((void*) proc3_it.pa(), loader.data(), loader.data_size());
     }
 
     // Set %rip and mark the entry point of the code.
@@ -210,15 +213,18 @@ void process_setup(pid_t pid, const char* program_name) {
     // We also need to allocate a page for the stack.
     uintptr_t stack_addr = PROC_START_ADDR + PROC_SIZE * pid - PAGESIZE;
 
-    //Set correct user-accessible perms for stack
-    vmiter proc_stack_it(ptable[pid].pagetable, stack_addr);
-    proc_stack_it.map(proc_stack_it.va(), PTE_P | PTE_W | PTE_U);
-
-    assert(!pages[stack_addr / PAGESIZE].used());
+    // assert(!pages[stack_addr / PAGESIZE].used());
     // Again, we're using the physical page that has the same address as the `stack_addr` to
     // maintain the one-to-one mapping between physical and virtual memory (you will have to change
     // this later).
-    pages[stack_addr / PAGESIZE].refcount = 1;
+    // pages[stack_addr / PAGESIZE].refcount = 1;
+    uintptr_t next_page = (uintptr_t) kalloc(PAGESIZE);
+    assert(pages[next_page / PAGESIZE].used());
+
+    //Set correct user-accessible perms for stack
+    vmiter proc_stack_it(ptable[pid].pagetable, stack_addr);
+    proc_stack_it.map(next_page, PTE_P | PTE_W | PTE_U);
+
     // Set %rsp to the start of the stack.
     ptable[pid].regs.reg_rsp = stack_addr + PAGESIZE;
 
@@ -373,14 +379,17 @@ uintptr_t syscall(regstate* regs) {
 //    have to change this).
 
 int syscall_page_alloc(uintptr_t addr) {
-    assert(!pages[addr / PAGESIZE].used());
+    // assert(!pages[addr / PAGESIZE].used());
     // Currently we're simply using the physical page that has the same address
     // as `addr` (which is a virtual address).
     if ((addr >=  PROC_START_ADDR) && (addr < MEMSIZE_VIRTUAL) && (addr % PAGESIZE == 0)) {
-        pages[addr / PAGESIZE].refcount = 1;
-        memset((void*) addr, 0, PAGESIZE);
+        // pages[addr / PAGESIZE].refcount = 1;
+        uintptr_t next_page = (uintptr_t) kalloc(PAGESIZE);
+        assert(pages[next_page / PAGESIZE].used());
+
+        memset((void*) next_page, 0, PAGESIZE);
         vmiter proc_it(ptable[current->pid].pagetable, addr);
-        proc_it.map(proc_it.va(), PTE_P | PTE_W | PTE_U);
+        proc_it.map(next_page, PTE_P | PTE_W | PTE_U);
         return 0;
     }
     return -1;
