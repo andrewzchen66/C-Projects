@@ -463,7 +463,7 @@ pid_t syscall_fork() {
             //Make pagetable copy for child
             x86_64_pagetable* child_pagetable = (x86_64_pagetable*) kalloc(PAGESIZE);
             if (!child_pagetable) {
-                kfree(child_pagetable);
+                // kfree(child_pagetable);
                 // cleanup(child_pagetable);
                 // syscall_exit();
                 return -1;
