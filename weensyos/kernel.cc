@@ -484,6 +484,7 @@ pid_t syscall_fork() {
                     memset((void*) next_address, 0, PAGESIZE);
                     memcpy((void*) next_address, (void*) parent_it.pa(), PAGESIZE);
                     if (child_it.try_map(next_address, parent_it.perm()) == -1) {
+                        kfree((void*) next_address);
                         cleanup(child_pagetable);
                         // syscall_exit();
                         return -1;
