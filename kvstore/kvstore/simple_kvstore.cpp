@@ -125,8 +125,8 @@ bool SimpleKvStore::MultiPut(const MultiPutRequest* req, MultiPutResponse*) {
 std::vector<std::string> SimpleKvStore::AllKeys() {
   // TODO (Part A, Steps 1 and 2): IMPLEMENT
   std::vector<std::string> keys = {};
-  for (const std::pair<std::string, std::string>& kv : kv_map) {
-    keys.push_back(kv.first);
+  for (std::map<std::string, std::string>::iterator it = kv_map.begin(); it != kv_map.end(); ++it) {
+    keys.push_back(it->first);
   }
   return keys;
 }
