@@ -48,7 +48,7 @@ The company/software developer should be in charge of developing the specifics a
 As stated in the handout, "public goods are commodities that benefit all citizens, and should therefore be made publicly available." As discussed in earlier sections, legacy software provides a distinct benefit to society by providing a method of archiving the cultural history that such software have provided in their time of use. Thus, their preservation is an educational homage to the software that led them to the present, which can be deemed as a public good. 
 
 * Response to partner: 
-Ryan brought up some good points about how legacy software is mainly being funded by a minority of the population that truly care about their cultural and historical significance, which points to the idea that there isn't enough general public interest for it to be deemed a public good. However, I still think the true value of preserving the software won't be realized until much later in the future, and the lecagy software shouldn't be hidden behind a paywall now just because it isn't being fully utilized in the present..
+Ryan brought up some good points about how legacy software is mainly being funded by a minority of the population that truly care about their cultural and historical significance, which points to the idea that there isn't enough general public interest for it to be deemed a public good. However, I still think the true value of preserving the software won't be realized until much later in the future, and the lecagy software shouldn't be hidden behind a paywall now just because it isn't being fully utilized in the present. 
 
 <!-- Answer here -->
 

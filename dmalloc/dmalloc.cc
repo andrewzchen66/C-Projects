@@ -207,3 +207,32 @@ void print_leak_report() {
         }
     }
 }
+
+/// drealloc(ptr, sz, file, line)
+///    Reallocate the dynamic memory pointed to by `ptr` to hold at least
+///    `sz` bytes, returning a pointer to the new block. If `ptr` is
+///    `nullptr`, behaves like `dmalloc(sz, file, line)`. If `sz` is 0,
+///    behaves like `dfree(ptr, file, line)`. The allocation request
+///    was at location `file`:`line`.
+
+void* drealloc(void* ptr, size_t sz, const char* file, long line) {
+    if (ptr == nullptr) {
+        return dmalloc(sz, file, line);
+    }
+    // If never allocated before (not in map)
+    // If already freed (in map, but i.second == 0)
+
+    
+    md* md_ptr = &*((md*)ptr - 1); // Obtain ptr's metadata
+    if (md_ptr->size > sz) {
+        char* terminating_ptr = (char*) ptr + sz;
+        dfree(terminating_ptr, file, line);
+    }
+    else if (md_ptr->size < sz) {
+        
+    }
+    else { //md_ptr->size == sz
+        return ptr;
+    }
+
+}
