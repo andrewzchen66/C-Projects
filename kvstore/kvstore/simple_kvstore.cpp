@@ -32,7 +32,7 @@ bool SimpleKvStore::Append(const AppendRequest* req, AppendResponse*) {
       // std::string combined_str;
       // combined_str.append(kv_map[req->key]);
       // combined_str.append(req->value);
-      kv_map[req->key] = combined_str;
+      // kv_map[req->key] = combined_str;
       // mtx.unlock();
       return true;
     }
