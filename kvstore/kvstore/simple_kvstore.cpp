@@ -24,7 +24,7 @@ bool SimpleKvStore::Put(const PutRequest* req, PutResponse*) {
 
 bool SimpleKvStore::Append(const AppendRequest* req, AppendResponse*) {
   // TODO (Part A, Steps 1 and 2): IMPLEMENT
-  mtx.lock();
+  std::unique_lock guard(mtx);
   for (std::map<std::string, std::string>::iterator it = kv_map.begin(); it != kv_map.end(); ++it) {
     // append to existing value if found
     if (it->first == req->key) {
@@ -32,13 +32,13 @@ bool SimpleKvStore::Append(const AppendRequest* req, AppendResponse*) {
       combined_str.append(kv_map[req->key]);
       combined_str.append(req->value);
       kv_map[req->key] = combined_str;
-      mtx.unlock();
+      // mtx.unlock();
       return true;
     }
   }
   // Create new kv pair
   kv_map[req->key] = req->value;
-  mtx.unlock();
+  // mtx.unlock();
   return true;
 }
 
