@@ -31,24 +31,6 @@ bool SimpleKvStore::Append(const AppendRequest* req, AppendResponse*) {
   }
   kv_map[req->key] = req->value;
   return true;
-
-
-  // for (std::map<std::string, std::string>::iterator it = kv_map.begin(); it != kv_map.end(); ++it) {
-  //   // append to existing value if found
-  //   if (it->first == req->key) {
-  //     (kv_map[req->key]).append(req->value);
-  //     // std::string combined_str;
-  //     // combined_str.append(kv_map[req->key]);
-  //     // combined_str.append(req->value);
-  //     // kv_map[req->key] = combined_str;
-  //     // mtx.unlock();
-  //     return true;
-  //   }
-  // }
-  // // Create new kv pair
-  // kv_map[req->key] = req->value;
-  // // mtx.unlock();
-  // return true;
 }
 
 bool SimpleKvStore::Delete(const DeleteRequest* req, DeleteResponse* res) {
