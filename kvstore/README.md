@@ -10,7 +10,7 @@ Project 5A - Concurrent Store
 ## Extra Credit Attempted:
 
 ## How long did it take to complete the Concurrent Store portion of KVStore?
-
+15 hours
 <!-- Enter an approximate number of hours that you spent actively working on the project. -->
 
 

@@ -77,7 +77,7 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
   for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
     search_count.push_back(bucket_nums.count(i));
     if (search_count[i] > 0) {
-      this->store.mtx_arr[i].lock();
+      this->store.mtx_arr[i].shared_lock();
     }
   }
 
@@ -93,7 +93,7 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
       // this->store.shared_mtx.unlock_shared();
       for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
         if (search_count[i] > 0) {
-          this->store.mtx_arr[i].unlock();
+          this->store.mtx_arr[i].shared_unlock();
         }
       }
       return false;
@@ -101,7 +101,7 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
     (res->values).push_back(val.value().value);
     search_count[bucket_nums[i]]--;
     if (search_count[bucket_nums[i]] == 0) {
-      this->store.mtx_arr[bucket_nums[i]].unlock();
+      this->store.mtx_arr[bucket_nums[i]].shared_unlock();
     }
   }
   // this->store.shared_mtx.unlock_shared();
