@@ -25,7 +25,7 @@ bool SimpleKvStore::Put(const PutRequest* req, PutResponse*) {
 bool SimpleKvStore::Append(const AppendRequest* req, AppendResponse*) {
   // TODO (Part A, Steps 1 and 2): IMPLEMENT
   std::unique_lock guard(mtx);
-  if (kv_map.count() > 0) {
+  if (kv_map.count(req->key) > 0) {
     (kv_map[req->key]).append(req->value);
     return true;
   }
