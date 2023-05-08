@@ -4,17 +4,13 @@
 
 bool ConcurrentKvStore::Get(const GetRequest* req, GetResponse* res) {
   // TODO (Part A, Steps 4 and 5): IMPLEMENT
-  // this->store.shared_mtx.lock_shared();
   size_t bucket_num = this->store.bucket(req->key);
   std::shared_lock guard(this->store.mtx_arr[bucket_num]);
-  // this->store.mtx_arr[bucket_num].lock_shared()
   std::optional<DbItem> val = this->store.getIfExists(bucket_num, req->key);
   if (val.has_value()) {
     res->value = val.value().value;
-    // this->store.shared_mtx.unlock_shared();
     return true;
   }
-  // this->store.shared_mtx.unlock_shared();
   return false;
 }
 
@@ -22,15 +18,12 @@ bool ConcurrentKvStore::Put(const PutRequest* req, PutResponse*) {
   // TODO (Part A, Steps 4 and 5): IMPLEMENT
   size_t bucket_num = this->store.bucket(req->key);
   std::unique_lock guard(this->store.mtx_arr[bucket_num]);
-  // this->store.shared_mtx.lock();
   this->store.insertItem(this->store.bucket(req->key), req->key, req->value);
-  // this->store.shared_mtx.unlock();
   return true;
 }
 
 bool ConcurrentKvStore::Append(const AppendRequest* req, AppendResponse*) {
   // TODO (Part A, Steps 4 and 5): IMPLEMENT
-  // this->store.shared_mtx.lock();
   size_t bucket_num = this->store.bucket(req->key);
   std::unique_lock guard(this->store.mtx_arr[bucket_num]);
   std::optional<DbItem> val = this->store.getIfExists(bucket_num, req->key);
@@ -38,18 +31,15 @@ bool ConcurrentKvStore::Append(const AppendRequest* req, AppendResponse*) {
   if(val.has_value()) {
     // Append existing value
     this->store.insertItem(bucket_num, req->key, (val.value().value).append(req->value));
-    // this->store.shared_mtx.unlock();
     return true;
   }
   // Add new value if key not found
   this->store.insertItem(bucket_num, req->key, req->value);
-  // this->store.shared_mtx.unlock();
   return true;
 }
 
 bool ConcurrentKvStore::Delete(const DeleteRequest* req, DeleteResponse* res) {
   // TODO (Part A, Steps 4 and 5): IMPLEMENT
-  // this->store.shared_mtx.lock();
   size_t bucket_num = this->store.bucket(req->key);
   std::unique_lock guard(this->store.mtx_arr[bucket_num]);
   std::optional<DbItem> val = this->store.getIfExists(bucket_num, req->key);
@@ -57,17 +47,13 @@ bool ConcurrentKvStore::Delete(const DeleteRequest* req, DeleteResponse* res) {
     res->value = val.value().value;
   }
   bool ret = this->store.removeItem(bucket_num, req->key);
-  // this->store.shared_mtx.unlock();
   return ret;
 }
 
 bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
                                  MultiGetResponse* res) {
   // TODO (Part A, Steps 4 and 5): IMPLEMENT
-  // this->store.shared_mtx.lock_shared();
   res->values = {};
-
-
   std::map<int, size_t> bucket_nums = {};
   std::vector<int> search_count = {};
   
@@ -85,11 +71,8 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
 
   // Perform the MultiGet
   for (int i = 0; i < (int) req->keys.size(); i++) {
-    // size_t bucket_num = this->store.bucket(key);
-    // std::shared_lock guard(this->store.mtx_arr[bucket_num]);
     std::optional<DbItem> val = this->store.getIfExists(bucket_nums[i], req->keys[i]);
     if (!val.has_value()) {
-      // this->store.shared_mtx.unlock_shared();
       // Unlock all locks if about to return false
       for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
         if (search_count[i] > 0) {
@@ -99,12 +82,7 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
       return false;
     }
     (res->values).push_back(val.value().value);
-    // search_count[bucket_nums[i]]--;
-    // if (search_count[bucket_nums[i]] == 0) {
-    //   this->store.mtx_arr[bucket_nums[i]].unlock_shared();
-    // }
   }
-  // this->store.shared_mtx.unlock_shared();
 
   // Unlock everything if about to return true
   for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
@@ -118,9 +96,7 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
 bool ConcurrentKvStore::MultiPut(const MultiPutRequest* req,
                                  MultiPutResponse*) {
   // TODO (Part A, Steps 4 and 5): IMPLEMENT
-  // this->store.shared_mtx.lock();
   if (req->keys.size() != req->values.size()) {
-    // this->store.shared_mtx.unlock();
     return false;
   }
   std::map<int, size_t> bucket_nums = {};
@@ -139,14 +115,8 @@ bool ConcurrentKvStore::MultiPut(const MultiPutRequest* req,
   }
   // Perform the multiput, unlocking once the bucket no longer needs to be used
   for (int i = 0; i < (int) req->keys.size(); i++) {
-    // std::unique_lock guard(this->store.mtx_arr[bucket_num]);
     this->store.insertItem(bucket_nums[i], (req->keys)[i], (req->values)[i]);
-    // search_count[bucket_nums[i]]--;
-    // if (search_count[bucket_nums[i]] == 0) {
-    //   this->store.mtx_arr[bucket_nums[i]].unlock();
-    // }
   }
-  // this->store.shared_mtx.unlock();
   // Unlock everything if about to return true
   for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
     if (search_count[i] > 0) {
