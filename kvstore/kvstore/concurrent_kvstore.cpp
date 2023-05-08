@@ -70,6 +70,8 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
 
   std::map<int, size_t> bucket_nums = {};
   std::vector<int> search_count = {};
+  
+  // Store all the bucket numbers corresponding to the keys
   for (int i = 0; i < (int) req->keys.size(); i++) {
     bucket_nums[i] = this->store.bucket((req->keys)[i]);
   }
@@ -81,16 +83,14 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
     }
   }
 
-
-
-
-
+  // Perform the MultiGet
   for (int i = 0; i < (int) req->keys.size(); i++) {
     // size_t bucket_num = this->store.bucket(key);
     // std::shared_lock guard(this->store.mtx_arr[bucket_num]);
     std::optional<DbItem> val = this->store.getIfExists(bucket_nums[i], req->keys[i]);
     if (!val.has_value()) {
       // this->store.shared_mtx.unlock_shared();
+      // Unlock all locks if about to return false
       for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
         if (search_count[i] > 0) {
           this->store.mtx_arr[i].unlock_shared();
@@ -99,12 +99,19 @@ bool ConcurrentKvStore::MultiGet(const MultiGetRequest* req,
       return false;
     }
     (res->values).push_back(val.value().value);
-    search_count[bucket_nums[i]]--;
-    if (search_count[bucket_nums[i]] == 0) {
-      this->store.mtx_arr[bucket_nums[i]].unlock_shared();
-    }
+    // search_count[bucket_nums[i]]--;
+    // if (search_count[bucket_nums[i]] == 0) {
+    //   this->store.mtx_arr[bucket_nums[i]].unlock_shared();
+    // }
   }
   // this->store.shared_mtx.unlock_shared();
+
+  // Unlock everything if about to return true
+  for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
+    if (search_count[i] > 0) {
+      this->store.mtx_arr[i].unlock_shared();
+    }
+  }
   return true;
 }
 
@@ -118,6 +125,8 @@ bool ConcurrentKvStore::MultiPut(const MultiPutRequest* req,
   }
   std::map<int, size_t> bucket_nums = {};
   std::vector<int> search_count = {};
+  
+  // Store all the bucket numbers corresponding to the keys
   for (int i = 0; i < (int) req->keys.size(); i++) {
     bucket_nums[i] = this->store.bucket((req->keys)[i]);
   }
@@ -132,12 +141,18 @@ bool ConcurrentKvStore::MultiPut(const MultiPutRequest* req,
   for (int i = 0; i < (int) req->keys.size(); i++) {
     // std::unique_lock guard(this->store.mtx_arr[bucket_num]);
     this->store.insertItem(bucket_nums[i], (req->keys)[i], (req->values)[i]);
-    search_count[bucket_nums[i]]--;
-    if (search_count[bucket_nums[i]] == 0) {
-      this->store.mtx_arr[bucket_nums[i]].unlock();
-    }
+    // search_count[bucket_nums[i]]--;
+    // if (search_count[bucket_nums[i]] == 0) {
+    //   this->store.mtx_arr[bucket_nums[i]].unlock();
+    // }
   }
   // this->store.shared_mtx.unlock();
+  // Unlock everything if about to return true
+  for (int i = 0; i < (int)this->store.BUCKET_COUNT; i++) {
+    if (search_count[i] > 0) {
+      this->store.mtx_arr[i].unlock();
+    }
+  }
   return true;
 }
 
@@ -146,14 +161,14 @@ std::vector<std::string> ConcurrentKvStore::AllKeys() {
   std::vector<std::string> keys = {};
   // Lock all the mutexes in mtx_arr;
   for (int bucket_num = 0; bucket_num < (int)this->store.BUCKET_COUNT; bucket_num++) {
-    this->store.mtx_arr[bucket_num].lock();
+    this->store.mtx_arr[bucket_num].lock_shared();
   }
   // Add keys, unlocking mutexes as you go;
   for (int bucket_num = 0; bucket_num < (int)this->store.BUCKET_COUNT; bucket_num++) {
     for (DbItem item : this->store.buckets[bucket_num]) {
       keys.push_back(item.key);
     }
-    this->store.mtx_arr[bucket_num].unlock();
+    this->store.mtx_arr[bucket_num].unlock_shared();
   }
   return keys;
 }
